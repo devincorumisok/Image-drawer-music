@@ -3,42 +3,22 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Music Virtualizer — Live Visualizer</title>
+<title>Music Virtualizer — GitHub Pages MP3-Safe</title>
 <style>
-  :root{
-    --accent: #111;
-    --muted: #666;
-    --bg: #ffffff;
-  }
-  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--accent)}
-  .app{
-    display:grid;
-    grid-template-columns: 320px 1fr;
-    height:100vh;
-    gap:0;
-  }
-  .sidebar{
-    border-right:1px solid #eee;
-    padding:16px;
-    box-sizing:border-box;
-    background:linear-gradient(180deg, #fafafa, #fff);
-  }
+  :root{--accent:#111;--muted:#666;--bg:#ffffff}
+  html,body{height:100%;margin:0;font-family:system-ui,Arial;background:var(--bg);color:var(--accent)}
+  .app{display:grid;grid-template-columns:320px 1fr;height:100vh}
+  .sidebar{border-right:1px solid #eee;padding:16px;background:#fafafa;overflow:auto}
   h1{font-size:18px;margin:0 0 12px}
   label{display:block;font-size:12px;color:var(--muted);margin-top:12px}
-  .control{margin-top:8px}
-  input[type=range]{width:100%}
-  .btn{display:inline-block;padding:8px 12px;border-radius:6px;border:1px solid #ddd;background:#fff;cursor:pointer}
-  .big-btn{width:100%;text-align:center;margin-top:10px}
-  .canvas-wrap{position:relative;background:var(--bg);overflow:hidden}
+  input[type=range],select,input[type=color],input[type=text]{width:100%}
+  .btn{padding:6px 10px;margin-top:8px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer}
+  .canvas-wrap{position:relative;background:var(--bg)}
   canvas{display:block;width:100%;height:100%}
-  .dropzone{
-    margin-top:8px;border:2px dashed #eee;padding:10px;border-radius:8px;text-align:center;color:var(--muted);font-size:13px
-  }
-  .meta{font-size:13px;color:var(--muted);margin-top:8px}
-  .footer{position:absolute;left:16px;bottom:16px;font-size:12px;color:var(--muted)}
-  .row{display:flex;gap:8px;align-items:center}
-  select, input[type=text]{width:100%;padding:6px;border:1px solid #eee;border-radius:6px}
-  .small{font-size:12px}
+  .dropzone{margin-top:8px;border:2px dashed #ddd;padding:10px;text-align:center;color:#666;font-size:13px;border-radius:8px}
+  .meta{font-size:13px;color:#666;margin-top:8px}
+  .row{display:flex;gap:6px;align-items:center}
+  .footer{position:absolute;left:16px;bottom:16px;font-size:12px;color:#aaa}
 </style>
 </head>
 <body>
@@ -47,412 +27,214 @@
     <h1>Music Virtualizer</h1>
 
     <label>Load audio file</label>
-    <input id="file" type="file" accept="audio/*" />
+    <input id="file" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a" />
     <div class="dropzone" id="drop">Or drag & drop audio file here</div>
 
-    <label>Or load by URL (CORS must allow)</label>
-    <div class="row">
-      <input id="url" type="text" placeholder="https://..." />
-      <button class="btn" id="loadUrl">Load</button>
-    </div>
-
-    <label class="control">Playback</label>
-    <div class="row" style="gap:6px">
-      <button class="btn" id="play">Play</button>
-      <button class="btn" id="pause">Pause</button>
-      <button class="btn" id="stop">Stop</button>
-    </div>
-    <div class="meta" id="trackInfo">No track loaded</div>
-
-    <label class="control">Visualization</label>
+    <label>Visualization</label>
     <select id="visType">
-      <option value="bars">Bars (spectrum)</option>
+      <option value="bars">Bars</option>
       <option value="wave">Waveform</option>
-      <option value="radial">Radial / Circular</option>
+      <option value="radial">Radial</option>
       <option value="particles">Particles</option>
     </select>
 
-    <label class="control">FFT size</label>
+    <label>FFT size</label>
     <select id="fftSize">
-      <option>32</option>
-      <option>64</option>
       <option>128</option>
       <option selected>256</option>
       <option>512</option>
       <option>1024</option>
-      <option>2048</option>
     </select>
 
-    <label class="control">Bar count / Resolution</label>
+    <label>Bar count</label>
     <input id="barCount" type="range" min="8" max="256" value="64" />
 
-    <label class="control">Sensitivity (amplitude multiplier)</label>
+    <label>Sensitivity</label>
     <input id="sensitivity" type="range" min="0.2" max="5" step="0.1" value="1" />
 
-    <label class="control">Smoothing (analyser.smoothingTimeConstant)</label>
+    <label>Smoothing</label>
     <input id="smoothing" type="range" min="0" max="0.99" step="0.01" value="0.6" />
 
-    <label class="control">Color</label>
-    <input id="color" type="color" value="#222222" />
+    <label>Color</label>
+    <input id="color" type="color" value="#111111" />
 
-    <label class="control">Effects</label>
-    <div class="row">
-      <input id="glow" type="checkbox" /><label for="glow" class="small">Glow</label>
-      <input id="invert" type="checkbox" style="margin-left:10px" /><label for="invert" class="small">Invert Colors</label>
-    </div>
+    <label>Background</label>
+    <input id="bgColor" type="color" value="#ffffff" />
 
-    <label class="control">Background</label>
-    <div class="row">
-      <input id="bgColor" type="color" value="#ffffff" />
-      <span class="small" style="margin-left:8px;color:var(--muted)">white background default</span>
-    </div>
+    <label><input id="glow" type="checkbox"> Glow</label>
+    <label><input id="invert" type="checkbox"> Invert Colors</label>
 
-    <button id="downloadPNG" class="btn big-btn">Download Snapshot (PNG)</button>
-
-    <div style="margin-top:16px;font-size:13px;color:var(--muted)">
-      Tip: drag a supported audio file (mp3/wav/ogg/m4a) into the drop area or paste a URL. Some browsers support different codecs.
-    </div>
-
+    <button id="downloadPNG" class="btn">Download Snapshot</button>
+    <div class="meta" id="trackInfo">No track loaded</div>
   </div>
 
-  <div class="canvas-wrap" id="canvasWrap">
+  <div class="canvas-wrap">
     <canvas id="c"></canvas>
-    <div class="footer">Visualizer — white background &mdash; controls on the left</div>
+    <div class="footer">Visualizer — GitHub Pages MP3-safe</div>
   </div>
 </div>
 
 <script>
-/*
-Music Virtualizer
-- Uses Web Audio API + AnalyserNode
-- Multiple visualization modes
-- Settings: sensitivity, smoothing, FFT size, bar count, color, glow
-- Drag/drop & file input & URL
-*/
+let audioCtx, analyser, dataArray, bufferLength, sourceNode;
+let playing=false, rafId=null;
 
-let audioCtx = null;
-let audioEl = null;
-let sourceNode = null;
-let analyser = null;
-let dataArray = null;
-let bufferLength = 0;
-let playing = false;
-let rafId = null;
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
 
-const fileInput = document.getElementById('file');
-const drop = document.getElementById('drop');
-const urlInput = document.getElementById('url');
-const loadUrlBtn = document.getElementById('loadUrl');
-const playBtn = document.getElementById('play');
-const pauseBtn = document.getElementById('pause');
-const stopBtn = document.getElementById('stop');
-const fftSelect = document.getElementById('fftSize');
-const barCountSlider = document.getElementById('barCount');
-const sensitivitySlider = document.getElementById('sensitivity');
-const smoothingSlider = document.getElementById('smoothing');
-const visType = document.getElementById('visType');
-const colorInput = document.getElementById('color');
-const bgColorInput = document.getElementById('bgColor');
-const glowCheckbox = document.getElementById('glow');
-const invertCheckbox = document.getElementById('invert');
-const trackInfo = document.getElementById('trackInfo');
-const downloadPNG = document.getElementById('downloadPNG');
+const fileInput=document.getElementById("file");
+const drop=document.getElementById("drop");
+const trackInfo=document.getElementById("trackInfo");
+const visType=document.getElementById("visType");
+const fftSelect=document.getElementById("fftSize");
+const barCountSlider=document.getElementById("barCount");
+const sensitivitySlider=document.getElementById("sensitivity");
+const smoothingSlider=document.getElementById("smoothing");
+const colorInput=document.getElementById("color");
+const bgColorInput=document.getElementById("bgColor");
+const glowCheckbox=document.getElementById("glow");
+const invertCheckbox=document.getElementById("invert");
+const downloadPNG=document.getElementById("downloadPNG");
 
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-
-function ensureAudioContext(){
+function ensureCtx(){
   if(!audioCtx){
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
   }
 }
-
-function createAnalyser(fft){
-  if(analyser) analyser.disconnect();
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = fft;
-  analyser.smoothingTimeConstant = parseFloat(smoothingSlider.value);
-  bufferLength = analyser.frequencyBinCount;
-  dataArray = new Uint8Array(bufferLength);
-}
-
-function attachSourceFromElement(el){
-  if(sourceNode) sourceNode.disconnect();
-  sourceNode = audioCtx.createMediaElementSource(el);
-  sourceNode.connect(analyser);
-  analyser.connect(audioCtx.destination);
-}
-
-function startRendering(){
-  cancelAnimationFrame(rafId);
-  resizeCanvas();
-  renderLoop();
-}
-
-function stopAudio(){
-  if(audioEl){
-    audioEl.pause();
-    audioEl.currentTime = 0;
-  }
-  playing = false;
-  if(rafId) cancelAnimationFrame(rafId);
-  if(audioCtx && audioCtx.state !== 'closed') {
-    // keep context alive so user can play again
-  }
-}
-
-function handleFile(file){
-  if(!file) return;
-  const url = URL.createObjectURL(file);
-  loadAudio(url, file.name);
-}
-
-function loadAudio(url, name){
-  ensureAudioContext();
-  // clean previous
-  if(audioEl){
-    try { audioEl.pause(); } catch(e){}
-    audioEl.remove();
-    audioEl = null;
-  }
-  audioEl = new Audio();
-  audioEl.crossOrigin = "anonymous";
-  audioEl.controls = false;
-  audioEl.src = url;
-  audioEl.loop = false;
-  audioEl.preload = "auto";
-  audioEl.onended = ()=>{ playing=false; }
-  audioEl.onerror = (e)=>{
-    trackInfo.textContent = "Failed to load. Browser may not support that file type.";
-  };
-  // create analyser if not exists
-  createAnalyser(parseInt(fftSelect.value));
-  attachSourceFromElement(audioEl);
-
-  trackInfo.textContent = "Loaded: " + (name || url.split('/').pop());
-  playAudio();
-}
-
-function playAudio(){
-  if(!audioEl) return;
-  ensureAudioContext();
-  if(audioCtx.state === 'suspended') audioCtx.resume();
-  audioEl.play().then(()=>{ playing=true; startRendering(); }).catch((err)=>{
-    // autoplay/gesture restriction
-    trackInfo.textContent = "Playback blocked by browser gesture policy. Click Play button.";
-  });
-}
-
-function pauseAudio(){
-  if(audioEl){ audioEl.pause(); playing=false; }
-}
-
 function resizeCanvas(){
-  const rect = document.getElementById('canvasWrap').getBoundingClientRect();
-  canvas.width = Math.floor(rect.width * devicePixelRatio);
-  canvas.height = Math.floor(rect.height * devicePixelRatio);
-  canvas.style.width = rect.width + 'px';
-  canvas.style.height = rect.height + 'px';
+  canvas.width=canvas.clientWidth*devicePixelRatio;
+  canvas.height=canvas.clientHeight*devicePixelRatio;
   ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
 }
+window.addEventListener("resize",resizeCanvas);resizeCanvas();
 
-window.addEventListener('resize', ()=>{ resizeCanvas(); });
+fileInput.addEventListener("change",e=>{
+  if(e.target.files[0]) handleFile(e.target.files[0]);
+});
+drop.addEventListener("dragover",e=>{e.preventDefault();drop.style.borderColor="#aaa"});
+drop.addEventListener("dragleave",()=>drop.style.borderColor="#ddd");
+drop.addEventListener("drop",e=>{
+  e.preventDefault();drop.style.borderColor="#ddd";
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
 
-function renderLoop(){
-  rafId = requestAnimationFrame(renderLoop);
-  if(!analyser) return;
-  analyser.smoothingTimeConstant = parseFloat(smoothingSlider.value);
-  const fftSize = parseInt(fftSelect.value);
-  if(analyser.fftSize !== fftSize) { analyser.fftSize = fftSize; bufferLength = analyser.frequencyBinCount; dataArray = new Uint8Array(bufferLength); }
-  const vis = visType.value;
-  const sensitivity = parseFloat(sensitivitySlider.value);
-  const color = colorInput.value;
-  const bg = bgColorInput.value;
-  const glow = glowCheckbox.checked;
-  const invert = invertCheckbox.checked;
+async function handleFile(file){
+  ensureCtx();
+  if(sourceNode){try{sourceNode.stop()}catch(e){};sourceNode.disconnect();}
+  const arrayBuffer=await file.arrayBuffer();
+  const audioBuffer=await audioCtx.decodeAudioData(arrayBuffer);
 
-  // clear with bg
-  ctx.fillStyle = bg;
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.fillRect(0,0,canvas.width/devicePixelRatio,canvas.height/devicePixelRatio);
+  analyser=audioCtx.createAnalyser();
+  analyser.fftSize=parseInt(fftSelect.value);
+  analyser.smoothingTimeConstant=parseFloat(smoothingSlider.value);
+  bufferLength=analyser.frequencyBinCount;
+  dataArray=new Uint8Array(bufferLength);
 
-  if(vis === 'bars' || vis === 'radial' || vis === 'particles'){
-    analyser.getByteFrequencyData(dataArray);
-  } else {
-    analyser.getByteTimeDomainData(dataArray);
-  }
-
-  const w = canvas.width/devicePixelRatio;
-  const h = canvas.height/devicePixelRatio;
-
-  // optional invert
-  if(invert){
-    ctx.save();
-    ctx.globalCompositeOperation = 'difference';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0,0,w,h);
-    ctx.restore();
-  }
-
-  ctx.lineWidth = 2;
-
-  if(vis === 'bars'){
-    const count = parseInt(barCountSlider.value);
-    const binStep = Math.max(1, Math.floor(dataArray.length / count));
-    const bw = w / count;
-    for(let i=0;i<count;i++){
-      let sum = 0;
-      for(let j=0;j<binStep;j++){
-        sum += dataArray[i*binStep + j] || 0;
-      }
-      const val = (sum / binStep) / 255;
-      const scaled = Math.pow(val, 1/1.2) * sensitivity;
-      const barH = Math.max(2, scaled * h);
-      const x = i * bw;
-      if(glow){
-        ctx.shadowBlur = 18;
-        ctx.shadowColor = color;
-      } else {
-        ctx.shadowBlur = 0;
-      }
-      ctx.fillStyle = color;
-      ctx.fillRect(x + bw*0.08, h - barH, bw*0.84, barH);
-    }
-    ctx.shadowBlur = 0;
-  } else if(vis === 'wave'){
-    // time domain waveform
-    ctx.beginPath();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = color;
-    const step = Math.ceil(dataArray.length / w);
-    let x = 0;
-    for(let i=0;i<dataArray.length;i+=step){
-      const v = dataArray[i] / 128.0; // -1..1-ish
-      const y = (v * 0.5) * h; // v ranges ~0-2
-      const yPos = (h/2) + (y - h*0.25) * sensitivity;
-      if(i===0) ctx.moveTo(x, yPos);
-      else ctx.lineTo(x, yPos);
-      x += 1;
-    }
-    if(glow){
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = color;
-    }
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-  } else if(vis === 'radial'){
-    // circular bars
-    const cx = w/2, cy = h/2;
-    const radius = Math.min(w,h) * 0.18;
-    const count = parseInt(barCountSlider.value);
-    const binStep = Math.max(1, Math.floor(dataArray.length / count));
-    for(let i=0;i<count;i++){
-      let sum=0;
-      for(let j=0;j<binStep;j++) sum += dataArray[i*binStep + j] || 0;
-      const val = (sum / binStep) / 255;
-      const len = radius + val * radius * sensitivity * 1.8;
-      const angle = (i/count) * Math.PI * 2;
-      const x1 = cx + Math.cos(angle) * radius;
-      const y1 = cy + Math.sin(angle) * radius;
-      const x2 = cx + Math.cos(angle) * len;
-      const y2 = cy + Math.sin(angle) * len;
-      ctx.beginPath();
-      if(glow){ ctx.shadowBlur = 16; ctx.shadowColor = color; }
-      ctx.strokeStyle = color;
-      ctx.lineWidth = Math.max(1, Math.min(8, (w/200)));
-      ctx.moveTo(x1,y1);
-      ctx.lineTo(x2,y2);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-    }
-  } else if(vis === 'particles'){
-    // simple particle cloud influence by low/mid frequencies
-    // create a simple deterministic particle set for performance
-    const count = Math.min(200, parseInt(barCountSlider.value) * 2);
-    const lowCount = Math.max(1, Math.floor(dataArray.length * 0.1));
-    let lowAvg = 0;
-    for(let i=0;i<lowCount;i++) lowAvg += dataArray[i] || 0;
-    lowAvg /= lowCount;
-    // draw semi-random points based on time and frequency
-    const now = Date.now() * 0.001;
-    for(let i=0;i<count;i++){
-      const t = i / count;
-      const angle = t * Math.PI * 2 + now * 0.6;
-      const r = (0.2 + 0.8 * Math.abs(Math.sin(t * 7 + now*0.3))) * (Math.min(w,h) * 0.45);
-      const rx = (Math.cos(angle) * r) + (w/2) + Math.sin(now * (0.2 + t)) * 12;
-      const ry = (Math.sin(angle) * r) + (h/2) + Math.cos(now * (0.2 + t)) * 12;
-      const intensity = ((dataArray[Math.floor((t*dataArray.length))]||0)/255) * sensitivity;
-      const size = Math.max(1, 6 * intensity);
-      if(glow){ ctx.shadowBlur = 18; ctx.shadowColor = color; }
-      ctx.beginPath();
-      ctx.fillStyle = color;
-      ctx.globalAlpha = Math.min(1, 0.2 + intensity*0.9);
-      ctx.arc(rx, ry, size, 0, Math.PI*2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.shadowBlur = 0;
-    }
-  }
-
-  // subtle overlay text
-  ctx.fillStyle = '#444';
-  ctx.font = '12px system-ui,Segoe UI,Roboto,Arial';
-  ctx.fillText((playing ? 'Playing' : 'Paused') + ' — ' + (document.getElementById('trackInfo').textContent || ''), 10, 18);
+  sourceNode=audioCtx.createBufferSource();
+  sourceNode.buffer=audioBuffer;
+  sourceNode.connect(analyser);
+  analyser.connect(audioCtx.destination);
+  sourceNode.onended=()=>playing=false;
+  sourceNode.start();
+  playing=true;
+  trackInfo.textContent="Loaded: "+file.name;
+  render();
 }
 
-fileInput.addEventListener('change', (e)=>{
-  if(e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
-});
-
-drop.addEventListener('dragover', (e)=>{ e.preventDefault(); drop.style.borderColor = '#ddd'; });
-drop.addEventListener('dragleave', ()=>{ drop.style.borderColor = '#eee'; });
-drop.addEventListener('drop', (e)=>{
-  e.preventDefault(); drop.style.borderColor = '#eee';
-  const f = e.dataTransfer.files && e.dataTransfer.files[0];
-  if(f) handleFile(f);
-});
-
-loadUrlBtn.addEventListener('click', ()=>{
-  const url = urlInput.value.trim();
-  if(!url) return;
-  loadAudio(url, url.split('/').pop());
-});
-
-playBtn.addEventListener('click', ()=>{
-  if(!audioEl){
-    trackInfo.textContent = 'No audio loaded. Drop a file or load a URL.';
-    return;
+function render(){
+  rafId=requestAnimationFrame(render);
+  if(!analyser) return;
+  analyser.smoothingTimeConstant=parseFloat(smoothingSlider.value);
+  if(analyser.fftSize!==parseInt(fftSelect.value)){
+    analyser.fftSize=parseInt(fftSelect.value);
+    bufferLength=analyser.frequencyBinCount;
+    dataArray=new Uint8Array(bufferLength);
   }
-  playAudio();
-});
+  const vis=visType.value;
+  const w=canvas.width/devicePixelRatio,h=canvas.height/devicePixelRatio;
+  ctx.fillStyle=bgColorInput.value;
+  ctx.fillRect(0,0,w,h);
 
-pauseBtn.addEventListener('click', ()=>{ pauseAudio(); });
-stopBtn.addEventListener('click', ()=>{ stopAudio(); });
+  if(vis==="wave"){analyser.getByteTimeDomainData(dataArray);}
+  else{analyser.getByteFrequencyData(dataArray);}
 
-fftSelect.addEventListener('change', ()=>{ if(audioCtx && analyser){ analyser.fftSize = parseInt(fftSelect.value); bufferLength = analyser.frequencyBinCount; dataArray = new Uint8Array(bufferLength); } });
+  const sens=parseFloat(sensitivitySlider.value);
+  const color=colorInput.value;
+  const glow=glowCheckbox.checked;
+  const invert=invertCheckbox.checked;
 
-downloadPNG.addEventListener('click', ()=>{
-  const link = document.createElement('a');
-  link.href = canvas.toDataURL('image/png');
-  link.download = 'visualizer_snapshot.png';
+  if(invert){
+    ctx.save();ctx.globalCompositeOperation="difference";
+    ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);ctx.restore();
+  }
+
+  if(vis==="bars"){
+    const count=parseInt(barCountSlider.value);
+    const binStep=Math.floor(dataArray.length/count);
+    const bw=w/count;
+    for(let i=0;i<count;i++){
+      let sum=0;for(let j=0;j<binStep;j++) sum+=dataArray[i*binStep+j]||0;
+      const v=(sum/binStep)/255*sens;
+      const barH=h*v;
+      if(glow){ctx.shadowBlur=12;ctx.shadowColor=color;}
+      ctx.fillStyle=color;
+      ctx.fillRect(i*bw,h-barH,bw*0.8,barH);
+    }
+    ctx.shadowBlur=0;
+  }
+  else if(vis==="wave"){
+    ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2;
+    for(let i=0;i<dataArray.length;i++){
+      const v=dataArray[i]/128.0;
+      const y=(v*h/2)*sens;
+      const x=i*(w/bufferLength);
+      if(i===0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    }
+    if(glow){ctx.shadowBlur=12;ctx.shadowColor=color;}
+    ctx.stroke();ctx.shadowBlur=0;
+  }
+  else if(vis==="radial"){
+    const cx=w/2,cy=h/2,r=Math.min(w,h)*0.18;
+    const count=parseInt(barCountSlider.value);
+    const step=Math.floor(dataArray.length/count);
+    for(let i=0;i<count;i++){
+      let sum=0;for(let j=0;j<step;j++) sum+=dataArray[i*step+j]||0;
+      const v=(sum/step)/255*sens;
+      const len=r+v*r*2;
+      const angle=i/count*Math.PI*2;
+      ctx.beginPath();
+      ctx.strokeStyle=color;ctx.lineWidth=2;
+      if(glow){ctx.shadowBlur=12;ctx.shadowColor=color;}
+      ctx.moveTo(cx+Math.cos(angle)*r,cy+Math.sin(angle)*r);
+      ctx.lineTo(cx+Math.cos(angle)*len,cy+Math.sin(angle)*len);
+      ctx.stroke();ctx.shadowBlur=0;
+    }
+  }
+  else if(vis==="particles"){
+    const count=Math.min(200,parseInt(barCountSlider.value)*2);
+    const now=Date.now()*0.001;
+    for(let i=0;i<count;i++){
+      const t=i/count,angle=t*Math.PI*2+now*0.5;
+      const radius=Math.min(w,h)*0.4*(0.3+Math.abs(Math.sin(t*5+now*0.5)));
+      const x=w/2+Math.cos(angle)*radius;
+      const y=h/2+Math.sin(angle)*radius;
+      const v=(dataArray[Math.floor(t*dataArray.length)]||0)/255*sens;
+      const size=2+v*6;
+      ctx.beginPath();
+      ctx.fillStyle=color;
+      if(glow){ctx.shadowBlur=12;ctx.shadowColor=color;}
+      ctx.arc(x,y,size,0,Math.PI*2);
+      ctx.fill();ctx.shadowBlur=0;
+    }
+  }
+}
+
+downloadPNG.addEventListener("click",()=>{
+  const link=document.createElement("a");
+  link.href=canvas.toDataURL("image/png");
+  link.download="visualizer.png";
   link.click();
 });
-
-// Initialize canvas fullsize
-resizeCanvas();
-
-// small helper to try decoding unknown file with decodeAudioData if direct audio element fails (not used by default)
-async function tryDecodeArrayBuffer(fileOrUrl){
-  // not called automatically to avoid CORS complexity; kept for future expansion
-}
-
-// Auto-resize on load
-window.addEventListener('load', ()=>resizeCanvas());
-
-// Prevent accidental navigation on dragdrop
-window.addEventListener("dragover", function(e){ e.preventDefault(); }, false);
-window.addEventListener("drop", function(e){ /* allow handling in drop area only */ }, false);
-
 </script>
 </body>
 </html>
