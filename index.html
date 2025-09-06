@@ -3,649 +3,456 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Live Photo → Drawing (Audio-Reactive) — Extended</title>
+<title>Music Virtualizer — Live Visualizer</title>
 <style>
   :root{
-    --bg:#f6f7fb;--panel:#fff;--muted:#6b7280;--accent:#111;
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
-    color:var(--accent);
+    --accent: #111;
+    --muted: #666;
+    --bg: #ffffff;
   }
-  html,body{height:100%;margin:0;background:var(--bg)}
-  .wrap{max-width:1200px;margin:18px auto;padding:12px;display:grid;grid-template-columns:360px 1fr;gap:14px}
-  header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}
-  h1{font-size:18px;margin:0}
-  .panel{background:var(--panel);border-radius:10px;padding:12px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
-  .controls{display:flex;flex-direction:column;gap:10px}
-  label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
-  input[type=file]{display:block}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--accent)}
+  .app{
+    display:grid;
+    grid-template-columns: 320px 1fr;
+    height:100vh;
+    gap:0;
+  }
+  .sidebar{
+    border-right:1px solid #eee;
+    padding:16px;
+    box-sizing:border-box;
+    background:linear-gradient(180deg, #fafafa, #fff);
+  }
+  h1{font-size:18px;margin:0 0 12px}
+  label{display:block;font-size:12px;color:var(--muted);margin-top:12px}
+  .control{margin-top:8px}
   input[type=range]{width:100%}
+  .btn{display:inline-block;padding:8px 12px;border-radius:6px;border:1px solid #ddd;background:#fff;cursor:pointer}
+  .big-btn{width:100%;text-align:center;margin-top:10px}
+  .canvas-wrap{position:relative;background:var(--bg);overflow:hidden}
+  canvas{display:block;width:100%;height:100%}
+  .dropzone{
+    margin-top:8px;border:2px dashed #eee;padding:10px;border-radius:8px;text-align:center;color:var(--muted);font-size:13px
+  }
+  .meta{font-size:13px;color:var(--muted);margin-top:8px}
+  .footer{position:absolute;left:16px;bottom:16px;font-size:12px;color:var(--muted)}
   .row{display:flex;gap:8px;align-items:center}
-  .row.space{justify-content:space-between}
-  button{background:#fff;border:1px solid #e5e7eb;padding:8px 10px;border-radius:8px;cursor:pointer}
-  .small{font-size:13px;color:var(--muted)}
-  #canvasWrap{display:flex;flex-direction:column;gap:10px;align-items:center}
-  canvas{background:#fff;border-radius:8px;max-width:100%;box-shadow:0 6px 20px rgba(12,18,30,.06)}
-  .styleGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-  .styleCard{padding:8px;border-radius:8px;border:1px solid #f0f0f2;cursor:pointer;display:flex;flex-direction:column;gap:6px}
-  .styleCard.active{box-shadow:inset 0 0 0 2px rgba(0,0,0,.06)}
-  .progress{height:8px;background:#eef2ff;border-radius:6px;overflow:hidden}
-  .progress > i{display:block;height:100%;background:#6366f1;width:0%}
-  footer{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;margin-top:8px}
-  .meta{font-size:12px;color:var(--muted)}
-  select,input[type=checkbox]{margin-right:6px}
-  .inline{display:inline-flex;gap:6px;align-items:center}
+  select, input[type=text]{width:100%;padding:6px;border:1px solid #eee;border-radius:6px}
+  .small{font-size:12px}
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div>
-        <h1>Live Photo → Drawing (Extended)</h1>
-        <div class="meta">Audio-reactive, multiple styles, SVG + hi-res export</div>
-      </div>
-      <div class="inline">
-        <button id="start">Start</button>
-        <button id="pause">Pause</button>
-        <button id="reset">Reset</button>
-      </div>
-    </header>
+<div class="app">
+  <div class="sidebar">
+    <h1>Music Virtualizer</h1>
 
-    <aside class="panel">
-      <div class="controls">
-        <div>
-          <label>Image</label>
-          <input id="imgFile" type="file" accept="image/*" />
-        </div>
+    <label>Load audio file</label>
+    <input id="file" type="file" accept="audio/*" />
+    <div class="dropzone" id="drop">Or drag & drop audio file here</div>
 
-        <div>
-          <label>Audio (optional)</label>
-          <input id="audioFile" type="file" accept="audio/*" />
-          <div class="row" style="margin-top:8px">
-            <button id="playAudio" disabled>Play</button>
-            <button id="stopAudio" disabled>Stop</button>
-            <label class="small" style="margin-left:auto"><input id="audioDrive" type="checkbox" checked /> Audio drives style</label>
-          </div>
-        </div>
+    <label>Or load by URL (CORS must allow)</label>
+    <div class="row">
+      <input id="url" type="text" placeholder="https://..." />
+      <button class="btn" id="loadUrl">Load</button>
+    </div>
 
-        <div>
-          <label>Style Preset</label>
-          <div class="styleGrid" id="styleGrid">
-            <!-- Filled by script -->
-          </div>
-        </div>
+    <label class="control">Playback</label>
+    <div class="row" style="gap:6px">
+      <button class="btn" id="play">Play</button>
+      <button class="btn" id="pause">Pause</button>
+      <button class="btn" id="stop">Stop</button>
+    </div>
+    <div class="meta" id="trackInfo">No track loaded</div>
 
-        <div>
-          <label>Manual Controls</label>
-          <div class="small">Threshold <span id="valThreshold">100</span></div>
-          <input id="threshold" type="range" min="0" max="255" value="100" />
-          <div class="small">Density <span id="valDensity">1.0</span></div>
-          <input id="density" type="range" min="0.1" max="4" step="0.1" value="1.0" />
-          <div class="small">Stroke width <span id="valStroke">2</span></div>
-          <input id="stroke" type="range" min="0.5" max="12" step="0.1" value="2" />
-          <div class="small">Speed <span id="valSpeed">1.0</span></div>
-          <input id="speed" type="range" min="0.1" max="5" step="0.1" value="1.0" />
-          <div class="small">Jitter <span id="valJitter">1</span></div>
-          <input id="jitter" type="range" min="0" max="10" step="0.1" value="1" />
-          <label class="small"><input id="invert" type="checkbox" /> Invert (light strokes)</label>
-        </div>
+    <label class="control">Visualization</label>
+    <select id="visType">
+      <option value="bars">Bars (spectrum)</option>
+      <option value="wave">Waveform</option>
+      <option value="radial">Radial / Circular</option>
+      <option value="particles">Particles</option>
+    </select>
 
-        <div>
-          <label>Export</label>
-          <div class="row">
-            <select id="exportScale">
-              <option value="1">1× (canvas)</option>
-              <option value="2">2×</option>
-              <option value="4">4×</option>
-            </select>
-            <button id="exportPNG">Export PNG</button>
-          </div>
-          <div style="margin-top:8px" class="row">
-            <button id="exportSVG">Export SVG</button>
-            <button id="downloadSVG" disabled>Download SVG</button>
-          </div>
-        </div>
+    <label class="control">FFT size</label>
+    <select id="fftSize">
+      <option>32</option>
+      <option>64</option>
+      <option>128</option>
+      <option selected>256</option>
+      <option>512</option>
+      <option>1024</option>
+      <option>2048</option>
+    </select>
 
-        <div>
-          <label>Compute / Performance</label>
-          <div class="small">Max points: <span id="valMaxPoints">120000</span></div>
-          <input id="maxPoints" type="range" min="2000" max="200000" step="1000" value="120000" />
-          <div class="progress" style="margin-top:6px"><i id="progressBar"></i></div>
-        </div>
+    <label class="control">Bar count / Resolution</label>
+    <input id="barCount" type="range" min="8" max="256" value="64" />
 
-        <div style="display:flex;gap:8px">
-          <button id="presetPencil">Pencil</button>
-          <button id="presetInk">Ink</button>
-          <button id="presetChar">Charcoal</button>
-        </div>
-      </div>
-    </aside>
+    <label class="control">Sensitivity (amplitude multiplier)</label>
+    <input id="sensitivity" type="range" min="0.2" max="5" step="0.1" value="1" />
 
-    <main id="canvasWrap" class="panel">
-      <canvas id="canvas" width="1000" height="700"></canvas>
-      <div class="row space" style="width:100%">
-        <div class="small">Points: <span id="pointCount">0</span></div>
-        <div class="small">Status: <span id="status">idle</span></div>
-      </div>
-    </main>
+    <label class="control">Smoothing (analyser.smoothingTimeConstant)</label>
+    <input id="smoothing" type="range" min="0" max="0.99" step="0.01" value="0.6" />
 
-    <footer>Tip: Try "Stippling" with low density then export SVG for crisp scalable art. Audio reactivity can be toggled.</footer>
+    <label class="control">Color</label>
+    <input id="color" type="color" value="#222222" />
+
+    <label class="control">Effects</label>
+    <div class="row">
+      <input id="glow" type="checkbox" /><label for="glow" class="small">Glow</label>
+      <input id="invert" type="checkbox" style="margin-left:10px" /><label for="invert" class="small">Invert Colors</label>
+    </div>
+
+    <label class="control">Background</label>
+    <div class="row">
+      <input id="bgColor" type="color" value="#ffffff" />
+      <span class="small" style="margin-left:8px;color:var(--muted)">white background default</span>
+    </div>
+
+    <button id="downloadPNG" class="btn big-btn">Download Snapshot (PNG)</button>
+
+    <div style="margin-top:16px;font-size:13px;color:var(--muted)">
+      Tip: drag a supported audio file (mp3/wav/ogg/m4a) into the drop area or paste a URL. Some browsers support different codecs.
+    </div>
+
   </div>
 
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="c"></canvas>
+    <div class="footer">Visualizer — white background &mdash; controls on the left</div>
+  </div>
+</div>
+
 <script>
-/* Extended Live Photo → Drawing
-   - Multiple presets: pencil, ink, charcoal, stippling, cross-hatch
-   - SVG export + hi-res PNG export
-   - Audio reactive controls retained
-   - Keep everything client-side
+/*
+Music Virtualizer
+- Uses Web Audio API + AnalyserNode
+- Multiple visualization modes
+- Settings: sensitivity, smoothing, FFT size, bar count, color, glow
+- Drag/drop & file input & URL
 */
 
-(() => {
-  // Elements
-  const imgFile = document.getElementById('imgFile');
-  const audioFile = document.getElementById('audioFile');
-  const playAudioBtn = document.getElementById('playAudio');
-  const stopAudioBtn = document.getElementById('stopAudio');
-  const audioDriveChk = document.getElementById('audioDrive');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d', { alpha: false });
-  const progressBar = document.getElementById('progressBar');
-  const statusEl = document.getElementById('status');
-  const pointCountEl = document.getElementById('pointCount');
+let audioCtx = null;
+let audioEl = null;
+let sourceNode = null;
+let analyser = null;
+let dataArray = null;
+let bufferLength = 0;
+let playing = false;
+let rafId = null;
 
-  // Controls
-  const threshold = document.getElementById('threshold');
-  const density = document.getElementById('density');
-  const stroke = document.getElementById('stroke');
-  const speed = document.getElementById('speed');
-  const jitter = document.getElementById('jitter');
-  const invert = document.getElementById('invert');
-  const exportPNGbtn = document.getElementById('exportPNG');
-  const exportSVGbtn = document.getElementById('exportSVG');
-  const downloadSVGbtn = document.getElementById('downloadSVG');
-  const exportScale = document.getElementById('exportScale');
-  const maxPointsRange = document.getElementById('maxPoints');
-  const valMaxPoints = document.getElementById('valMaxPoints');
+const fileInput = document.getElementById('file');
+const drop = document.getElementById('drop');
+const urlInput = document.getElementById('url');
+const loadUrlBtn = document.getElementById('loadUrl');
+const playBtn = document.getElementById('play');
+const pauseBtn = document.getElementById('pause');
+const stopBtn = document.getElementById('stop');
+const fftSelect = document.getElementById('fftSize');
+const barCountSlider = document.getElementById('barCount');
+const sensitivitySlider = document.getElementById('sensitivity');
+const smoothingSlider = document.getElementById('smoothing');
+const visType = document.getElementById('visType');
+const colorInput = document.getElementById('color');
+const bgColorInput = document.getElementById('bgColor');
+const glowCheckbox = document.getElementById('glow');
+const invertCheckbox = document.getElementById('invert');
+const trackInfo = document.getElementById('trackInfo');
+const downloadPNG = document.getElementById('downloadPNG');
 
-  const startBtn = document.getElementById('start');
-  const pauseBtn = document.getElementById('pause');
-  const resetBtn = document.getElementById('reset');
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
 
-  // Preset UI
-  const styleGrid = document.getElementById('styleGrid');
-  const presetPencil = document.getElementById('presetPencil');
-  const presetInk = document.getElementById('presetInk');
-  const presetChar = document.getElementById('presetChar');
+function ensureAudioContext(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
 
-  const valThreshold = document.getElementById('valThreshold');
-  const valDensity = document.getElementById('valDensity');
-  const valStroke = document.getElementById('valStroke');
-  const valSpeed = document.getElementById('valSpeed');
-  const valJitter = document.getElementById('valJitter');
+function createAnalyser(fft){
+  if(analyser) analyser.disconnect();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = fft;
+  analyser.smoothingTimeConstant = parseFloat(smoothingSlider.value);
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+}
 
-  // Offscreen
-  const off = document.createElement('canvas');
-  const offCtx = off.getContext('2d', { alpha: false });
+function attachSourceFromElement(el){
+  if(sourceNode) sourceNode.disconnect();
+  sourceNode = audioCtx.createMediaElementSource(el);
+  sourceNode.connect(analyser);
+  analyser.connect(audioCtx.destination);
+}
 
-  // Audio
-  let audioCtx = null, audioSource = null, analyser = null, audioDataArray = null, audioElement = null;
-  let audioPlaying = false;
+function startRendering(){
+  cancelAnimationFrame(rafId);
+  resizeCanvas();
+  renderLoop();
+}
 
-  // Points & drawing
-  let points = []; // {x,y,intensity}
-  let paths = []; // grouped strokes for SVG
-  let drawIndex = 0, animationId = null, paused = false;
-  let computing = false;
+function stopAudio(){
+  if(audioEl){
+    audioEl.pause();
+    audioEl.currentTime = 0;
+  }
+  playing = false;
+  if(rafId) cancelAnimationFrame(rafId);
+  if(audioCtx && audioCtx.state !== 'closed') {
+    // keep context alive so user can play again
+  }
+}
 
-  // presets
-  const PRESETS = {
-    pencil:  {label:'Pencil', threshold:90, density:1.2, stroke:1.4, speed:1.0, jitter:0.8, blend:'normal'},
-    ink:     {label:'Ink', threshold:120, density:0.9, stroke:1.6, speed:1.2, jitter:0.4, blend:'normal'},
-    charcoal:{label:'Charcoal', threshold:80, density:1.8, stroke:3.8, speed:1.0, jitter:2.4, blend:'multiply'},
-    stipple: {label:'Stippling', threshold:100, density:2.6, stroke:0.9, speed:0.8, jitter:0.2, blend:'normal'},
-    cross:   {label:'Cross-hatch', threshold:90, density:1.6, stroke:1.2, speed:1.0, jitter:0.6, blend:'normal'}
+function handleFile(file){
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  loadAudio(url, file.name);
+}
+
+function loadAudio(url, name){
+  ensureAudioContext();
+  // clean previous
+  if(audioEl){
+    try { audioEl.pause(); } catch(e){}
+    audioEl.remove();
+    audioEl = null;
+  }
+  audioEl = new Audio();
+  audioEl.crossOrigin = "anonymous";
+  audioEl.controls = false;
+  audioEl.src = url;
+  audioEl.loop = false;
+  audioEl.preload = "auto";
+  audioEl.onended = ()=>{ playing=false; }
+  audioEl.onerror = (e)=>{
+    trackInfo.textContent = "Failed to load. Browser may not support that file type.";
   };
-  let currentStyle = 'pencil';
+  // create analyser if not exists
+  createAnalyser(parseInt(fftSelect.value));
+  attachSourceFromElement(audioEl);
 
-  // populate style grid
-  function buildStyleGrid(){
-    styleGrid.innerHTML = '';
-    Object.keys(PRESETS).forEach(k => {
-      const p = PRESETS[k];
-      const div = document.createElement('div');
-      div.className = 'styleCard' + (k === currentStyle ? ' active' : '');
-      div.dataset.key = k;
-      div.innerHTML = `<strong style="font-size:13px">${p.label}</strong><div class="small">${k}</div>`;
-      div.onclick = () => { applyPreset(k); document.querySelectorAll('.styleCard').forEach(c=>c.classList.remove('active')); div.classList.add('active'); };
-      styleGrid.appendChild(div);
-    });
-  }
-  buildStyleGrid();
+  trackInfo.textContent = "Loaded: " + (name || url.split('/').pop());
+  playAudio();
+}
 
-  function applyPreset(key){
-    if (!PRESETS[key]) return;
-    currentStyle = key;
-    const p = PRESETS[key];
-    threshold.value = p.threshold;
-    density.value = p.density;
-    stroke.value = p.stroke;
-    speed.value = p.speed;
-    jitter.value = p.jitter;
-    // blend mode applied in drawing stage (ctx.globalCompositeOperation)
-    updateUIValues();
-    if (off.width) computePoints();
-  }
-
-  // quick preset buttons
-  presetPencil.onclick = () => applyPreset('pencil');
-  presetInk.onclick = () => applyPreset('ink');
-  presetChar.onclick = () => applyPreset('charcoal');
-
-  // UI value updates
-  function updateUIValues(){
-    valThreshold.innerText = threshold.value;
-    valDensity.innerText = parseFloat(density.value).toFixed(1);
-    valStroke.innerText = parseFloat(stroke.value);
-    valSpeed.innerText = parseFloat(speed.value).toFixed(1);
-    valJitter.innerText = parseFloat(jitter.value);
-    valMaxPoints.innerText = parseInt(maxPointsRange.value,10);
-  }
-  [threshold,density,stroke,speed,jitter,maxPointsRange].forEach(el => el.addEventListener('input', updateUIValues));
-  updateUIValues();
-
-  // Load image
-  imgFile.addEventListener('change', (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    const url = URL.createObjectURL(f);
-    const img = new Image();
-    img.onload = () => {
-      // scale to fit available main area but keep resolution for export
-      const maxW = Math.min(window.innerWidth - 420, 1600);
-      const scale = Math.min(1, maxW / img.width);
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      off.width = canvas.width;
-      off.height = canvas.height;
-      offCtx.drawImage(img, 0, 0, off.width, off.height);
-      // show faint preview
-      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.save(); ctx.globalAlpha = 0.12; ctx.drawImage(off,0,0); ctx.restore();
-      computePoints();
-    };
-    img.src = url;
+function playAudio(){
+  if(!audioEl) return;
+  ensureAudioContext();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  audioEl.play().then(()=>{ playing=true; startRendering(); }).catch((err)=>{
+    // autoplay/gesture restriction
+    trackInfo.textContent = "Playback blocked by browser gesture policy. Click Play button.";
   });
+}
 
-  // Load audio
-  audioFile.addEventListener('change', async (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioElement) { audioElement.pause(); audioElement = null; }
-    const url = URL.createObjectURL(f);
-    audioElement = new Audio(url);
-    audioElement.crossOrigin = "anonymous";
-    playAudioBtn.disabled = false;
-    stopAudioBtn.disabled = false;
+function pauseAudio(){
+  if(audioEl){ audioEl.pause(); playing=false; }
+}
 
-    if (!analyser) {
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 2048;
-      audioDataArray = new Uint8Array(analyser.frequencyBinCount);
-    }
-    if (audioSource) try { audioSource.disconnect(); } catch(e){}
-    const track = audioCtx.createMediaElementSource(audioElement);
-    track.connect(analyser);
-    analyser.connect(audioCtx.destination);
-    audioSource = track;
-  });
+function resizeCanvas(){
+  const rect = document.getElementById('canvasWrap').getBoundingClientRect();
+  canvas.width = Math.floor(rect.width * devicePixelRatio);
+  canvas.height = Math.floor(rect.height * devicePixelRatio);
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+}
 
-  playAudioBtn.addEventListener('click', async () => {
-    if (!audioElement) return;
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    await audioCtx.resume();
-    audioElement.play();
-    audioPlaying = true;
-    status('audio playing');
-  });
-  stopAudioBtn.addEventListener('click', () => {
-    if (!audioElement) return;
-    audioElement.pause(); audioElement.currentTime = 0; audioPlaying = false; status('audio stopped');
-  });
+window.addEventListener('resize', ()=>{ resizeCanvas(); });
 
-  // compute points (grayscale + sobel + threshold + sampling)
-  function computePoints(){
-    if (computing) return;
-    if (!off.width) return;
-    computing = true;
-    status('computing edges...');
-    progress(0);
-    points = []; paths = []; drawIndex = 0;
-    const w = off.width, h = off.height;
-    const imgd = offCtx.getImageData(0,0,w,h);
-    const src = imgd.data;
-    const gray = new Float32Array(w*h);
-    for (let i=0;i<w*h;i++){
-      const r = src[i*4], g = src[i*4+1], b = src[i*4+2];
-      gray[i] = 0.299*r + 0.587*g + 0.114*b;
-    }
+function renderLoop(){
+  rafId = requestAnimationFrame(renderLoop);
+  if(!analyser) return;
+  analyser.smoothingTimeConstant = parseFloat(smoothingSlider.value);
+  const fftSize = parseInt(fftSelect.value);
+  if(analyser.fftSize !== fftSize) { analyser.fftSize = fftSize; bufferLength = analyser.frequencyBinCount; dataArray = new Uint8Array(bufferLength); }
+  const vis = visType.value;
+  const sensitivity = parseFloat(sensitivitySlider.value);
+  const color = colorInput.value;
+  const bg = bgColorInput.value;
+  const glow = glowCheckbox.checked;
+  const invert = invertCheckbox.checked;
 
-    // simple sobel
-    const gx = [-1,0,1,-2,0,2,-1,0,1];
-    const gy = [-1,-2,-1,0,0,0,1,2,1];
-    const edges = new Float32Array(w*h);
-    for (let y=1;y<h-1;y++){
-      for (let x=1;x<w-1;x++){
-        let sx=0, sy=0, k=0;
-        for (let ky=-1; ky<=1; ky++){
-          for (let kx=-1; kx<=1; kx++){
-            const v = gray[(y+ky)*w + (x+kx)];
-            sx += v * gx[k++];
-          }
-        }
-        k=0;
-        for (let ky=-1; ky<=1; ky++){
-          for (let kx=-1; kx<=1; kx++){
-            const v = gray[(y+ky)*w + (x+kx)];
-            sy += v * gy[k++];
-          }
-        }
-        edges[y*w + x] = Math.hypot(sx, sy);
-      }
-      if (y % 20 === 0) progress(Math.round((y / (h-1)) * 70));
-    }
+  // clear with bg
+  ctx.fillStyle = bg;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillRect(0,0,canvas.width/devicePixelRatio,canvas.height/devicePixelRatio);
 
-    // sample points according to threshold & density
-    const thr = parseInt(threshold.value,10);
-    const dens = parseFloat(density.value);
-    const maxPts = parseInt(maxPointsRange.value,10);
-    const tmp = [];
-    for (let y=1;y<h-1;y++){
-      for (let x=1;x<w-1;x++){
-        const v = edges[y*w + x];
-        if (v > thr) {
-          // probability sampling inversely to density (higher density => more points)
-          if (Math.random() < (1 / dens)) {
-            tmp.push({x, y, i: v});
-          }
-        }
-      }
-    }
-
-    // limit and shuffle
-    if (tmp.length > maxPts) {
-      // reservoir sampling-like: shuffle then slice
-      shuffleArray(tmp);
-      points = tmp.slice(0, maxPts);
-    } else {
-      points = tmp;
-    }
-    shuffleArray(points);
-
-    // group into short paths for continuity (look ahead/back clustering)
-    const clusterDist = Math.max(4, 6 / dens);
-    const used = new Uint8Array(points.length);
-    for (let i=0;i<points.length;i++){
-      if (used[i]) continue;
-      const p = points[i];
-      const path = [p];
-      used[i] = 1;
-      // greedy connect nearest few points
-      for (let j=i+1;j<points.length && path.length < 60;j++){
-        if (used[j]) continue;
-        const q = points[j];
-        const dx = q.x - p.x, dy = q.y - p.y;
-        if (Math.hypot(dx,dy) < clusterDist*10) {
-          path.push(q);
-          used[j] = 1;
-        }
-      }
-      paths.push(path);
-    }
-
-    progress(90);
-    setTimeout(()=>{ progress(100); computing=false; status('ready'); pointCountEl.innerText = points.length; drawIndex = 0; renderPreview(); }, 80);
+  if(vis === 'bars' || vis === 'radial' || vis === 'particles'){
+    analyser.getByteFrequencyData(dataArray);
+  } else {
+    analyser.getByteTimeDomainData(dataArray);
   }
 
-  function shuffleArray(a){
-    for (let i=a.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
+  const w = canvas.width/devicePixelRatio;
+  const h = canvas.height/devicePixelRatio;
+
+  // optional invert
+  if(invert){
+    ctx.save();
+    ctx.globalCompositeOperation = 'difference';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0,0,w,h);
+    ctx.restore();
   }
 
-  // status / progress helpers
-  function status(s){ statusEl.innerText = s; }
-  function progress(p){ progressBar.style.width = Math.min(100, Math.max(0, p)) + '%'; }
+  ctx.lineWidth = 2;
 
-  // render faint preview
-  function renderPreview(){
-    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.save(); ctx.globalAlpha = 0.12; ctx.drawImage(off,0,0); ctx.restore();
-  }
-
-  // Drawing loop - draws grouped paths so it's more like actual strokes
-  function animate(){
-    if (paused) { animationId = null; return; }
-    const audioFactor = getAudioFactor(); // 0..1
-    const sp = parseFloat(speed.value) * (1 + (audioDriveChk.checked ? audioFactor*2 : 0));
-    const stepPaths = Math.max(1, Math.floor(sp * 1.6)); // how many path groups per frame
-    const baseStroke = parseFloat(stroke.value);
-    const jitterAmount = parseFloat(jitter.value);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    // blend mode per preset
-    const presetBlend = PRESETS[currentStyle]?.blend || 'normal';
-    ctx.globalCompositeOperation = presetBlend === 'multiply' ? 'multiply' : 'source-over';
-
-    for (let s=0; s<stepPaths; s++){
-      if (drawIndex >= paths.length) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
-        status('done');
-        return;
+  if(vis === 'bars'){
+    const count = parseInt(barCountSlider.value);
+    const binStep = Math.max(1, Math.floor(dataArray.length / count));
+    const bw = w / count;
+    for(let i=0;i<count;i++){
+      let sum = 0;
+      for(let j=0;j<binStep;j++){
+        sum += dataArray[i*binStep + j] || 0;
       }
-      const path = paths[drawIndex++];
-      // compute stroke properties influenced by audio
-      const width = Math.max(0.3, baseStroke * (1 + (audioDriveChk.checked ? audioFactor*3 : 0)));
-      ctx.lineWidth = width;
-      ctx.strokeStyle = invert.checked ? '#fff' : '#111';
-      // style-specific drawing
-      if (currentStyle === 'stipple') {
-        // draw dots along path
-        for (let k=0;k<path.length;k++){
-          const p = path[k];
-          const r = Math.max(0.6, width*(Math.random()*1.4));
-          const jx = (Math.random() - 0.5) * jitterAmount;
-          const jy = (Math.random() - 0.5) * jitterAmount;
-          ctx.beginPath();
-          ctx.fillStyle = ctx.strokeStyle;
-          ctx.arc(p.x + jx, p.y + jy, r, 0, Math.PI*2);
-          ctx.fill();
-        }
-      } else if (currentStyle === 'cross') {
-        // short cross-hatch strokes
-        for (let k=0;k<path.length;k++){
-          const p = path[k];
-          ctx.beginPath();
-          const ang = (Math.random()*Math.PI*2);
-          const len = width * 6;
-          ctx.moveTo(p.x - Math.cos(ang)*len/2, p.y - Math.sin(ang)*len/2);
-          ctx.lineTo(p.x + Math.cos(ang)*len/2, p.y + Math.sin(ang)*len/2);
-          ctx.stroke();
-          // small second stroke perpendicular
-          ctx.beginPath();
-          const ang2 = ang + Math.PI/2;
-          ctx.moveTo(p.x - Math.cos(ang2)*len/3, p.y - Math.sin(ang2)*len/3);
-          ctx.lineTo(p.x + Math.cos(ang2)*len/3, p.y + Math.sin(ang2)*len/3);
-          ctx.stroke();
-        }
-      } else if (currentStyle === 'charcoal') {
-        // charcoal: thicker, more jitter + lower alpha
-        ctx.save();
-        ctx.globalAlpha = 0.85;
-        for (let k=0;k<path.length;k++){
-          const p = path[k];
-          const jx = (Math.random() - 0.5) * jitterAmount * 2;
-          const jy = (Math.random() - 0.5) * jitterAmount * 2;
-          ctx.beginPath();
-          const prev = path[Math.max(0,k-1)];
-          ctx.moveTo(prev.x + (Math.random()-0.5)*2, prev.y + (Math.random()-0.5)*2);
-          ctx.lineTo(p.x + jx, p.y + jy);
-          ctx.stroke();
-        }
-        ctx.restore();
+      const val = (sum / binStep) / 255;
+      const scaled = Math.pow(val, 1/1.2) * sensitivity;
+      const barH = Math.max(2, scaled * h);
+      const x = i * bw;
+      if(glow){
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = color;
       } else {
-        // pencil / ink / default: connected short strokes
-        ctx.beginPath();
-        for (let k=0;k<path.length;k++){
-          const p = path[k];
-          const jx = (Math.random()-0.5) * jitterAmount;
-          const jy = (Math.random()-0.5) * jitterAmount;
-          if (k===0) ctx.moveTo(p.x + jx, p.y + jy);
-          else ctx.lineTo(p.x + jx, p.y + jy);
-        }
-        ctx.stroke();
+        ctx.shadowBlur = 0;
       }
+      ctx.fillStyle = color;
+      ctx.fillRect(x + bw*0.08, h - barH, bw*0.84, barH);
     }
-
-    animationId = requestAnimationFrame(animate);
-    status('drawing ' + Math.min(100, Math.round((drawIndex/paths.length)*100)) + '%');
+    ctx.shadowBlur = 0;
+  } else if(vis === 'wave'){
+    // time domain waveform
+    ctx.beginPath();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = color;
+    const step = Math.ceil(dataArray.length / w);
+    let x = 0;
+    for(let i=0;i<dataArray.length;i+=step){
+      const v = dataArray[i] / 128.0; // -1..1-ish
+      const y = (v * 0.5) * h; // v ranges ~0-2
+      const yPos = (h/2) + (y - h*0.25) * sensitivity;
+      if(i===0) ctx.moveTo(x, yPos);
+      else ctx.lineTo(x, yPos);
+      x += 1;
+    }
+    if(glow){
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = color;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  } else if(vis === 'radial'){
+    // circular bars
+    const cx = w/2, cy = h/2;
+    const radius = Math.min(w,h) * 0.18;
+    const count = parseInt(barCountSlider.value);
+    const binStep = Math.max(1, Math.floor(dataArray.length / count));
+    for(let i=0;i<count;i++){
+      let sum=0;
+      for(let j=0;j<binStep;j++) sum += dataArray[i*binStep + j] || 0;
+      const val = (sum / binStep) / 255;
+      const len = radius + val * radius * sensitivity * 1.8;
+      const angle = (i/count) * Math.PI * 2;
+      const x1 = cx + Math.cos(angle) * radius;
+      const y1 = cy + Math.sin(angle) * radius;
+      const x2 = cx + Math.cos(angle) * len;
+      const y2 = cy + Math.sin(angle) * len;
+      ctx.beginPath();
+      if(glow){ ctx.shadowBlur = 16; ctx.shadowColor = color; }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(1, Math.min(8, (w/200)));
+      ctx.moveTo(x1,y1);
+      ctx.lineTo(x2,y2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+  } else if(vis === 'particles'){
+    // simple particle cloud influence by low/mid frequencies
+    // create a simple deterministic particle set for performance
+    const count = Math.min(200, parseInt(barCountSlider.value) * 2);
+    const lowCount = Math.max(1, Math.floor(dataArray.length * 0.1));
+    let lowAvg = 0;
+    for(let i=0;i<lowCount;i++) lowAvg += dataArray[i] || 0;
+    lowAvg /= lowCount;
+    // draw semi-random points based on time and frequency
+    const now = Date.now() * 0.001;
+    for(let i=0;i<count;i++){
+      const t = i / count;
+      const angle = t * Math.PI * 2 + now * 0.6;
+      const r = (0.2 + 0.8 * Math.abs(Math.sin(t * 7 + now*0.3))) * (Math.min(w,h) * 0.45);
+      const rx = (Math.cos(angle) * r) + (w/2) + Math.sin(now * (0.2 + t)) * 12;
+      const ry = (Math.sin(angle) * r) + (h/2) + Math.cos(now * (0.2 + t)) * 12;
+      const intensity = ((dataArray[Math.floor((t*dataArray.length))]||0)/255) * sensitivity;
+      const size = Math.max(1, 6 * intensity);
+      if(glow){ ctx.shadowBlur = 18; ctx.shadowColor = color; }
+      ctx.beginPath();
+      ctx.fillStyle = color;
+      ctx.globalAlpha = Math.min(1, 0.2 + intensity*0.9);
+      ctx.arc(rx, ry, size, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+    }
   }
 
-  // audio factor
-  function getAudioFactor(){
-    if (!analyser || !audioPlaying) return 0;
-    analyser.getByteFrequencyData(audioDataArray);
-    let sum=0;
-    for (let i=0;i<audioDataArray.length;i++){
-      sum += audioDataArray[i]*audioDataArray[i];
-    }
-    const rms = Math.sqrt(sum / audioDataArray.length) / 255;
-    return Math.min(1, rms*1.8);
+  // subtle overlay text
+  ctx.fillStyle = '#444';
+  ctx.font = '12px system-ui,Segoe UI,Roboto,Arial';
+  ctx.fillText((playing ? 'Playing' : 'Paused') + ' — ' + (document.getElementById('trackInfo').textContent || ''), 10, 18);
+}
+
+fileInput.addEventListener('change', (e)=>{
+  if(e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+drop.addEventListener('dragover', (e)=>{ e.preventDefault(); drop.style.borderColor = '#ddd'; });
+drop.addEventListener('dragleave', ()=>{ drop.style.borderColor = '#eee'; });
+drop.addEventListener('drop', (e)=>{
+  e.preventDefault(); drop.style.borderColor = '#eee';
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+
+loadUrlBtn.addEventListener('click', ()=>{
+  const url = urlInput.value.trim();
+  if(!url) return;
+  loadAudio(url, url.split('/').pop());
+});
+
+playBtn.addEventListener('click', ()=>{
+  if(!audioEl){
+    trackInfo.textContent = 'No audio loaded. Drop a file or load a URL.';
+    return;
   }
+  playAudio();
+});
 
-  // UI buttons
-  startBtn.addEventListener('click', () => {
-    paused = false;
-    if (!paths.length) computePoints();
-    if (!animationId) animationId = requestAnimationFrame(animate);
-    status('drawing...');
-  });
-  pauseBtn.addEventListener('click', () => {
-    paused = true;
-    if (animationId) cancelAnimationFrame(animationId);
-    animationId = null;
-    status('paused');
-  });
-  resetBtn.addEventListener('click', () => {
-    paused = true;
-    if (animationId) cancelAnimationFrame(animationId);
-    animationId = null;
-    drawIndex = 0;
-    renderPreview();
-    status('reset');
-  });
+pauseBtn.addEventListener('click', ()=>{ pauseAudio(); });
+stopBtn.addEventListener('click', ()=>{ stopAudio(); });
 
-  // recalc on threshold/density change
-  [threshold, density, maxPointsRange].forEach(el => el.addEventListener('input', () => {
-    if (off.width) computePoints();
-  }));
+fftSelect.addEventListener('change', ()=>{ if(audioCtx && analyser){ analyser.fftSize = parseInt(fftSelect.value); bufferLength = analyser.frequencyBinCount; dataArray = new Uint8Array(bufferLength); } });
 
-  // Export PNG (hi-res)
-  exportPNGbtn.addEventListener('click', () => {
-    if (!off.width) return alert('Load an image first');
-    const scale = parseInt(exportScale.value,10);
-    const w = off.width * scale;
-    const h = off.height * scale;
-    // create temp canvas and draw white bg then reconstruct strokes by re-running simple rendering at scale
-    const tmp = document.createElement('canvas');
-    tmp.width = w; tmp.height = h;
-    const tctx = tmp.getContext('2d', { alpha: false });
-    tctx.fillStyle = '#fff'; tctx.fillRect(0,0,w,h);
-    // draw scaled original with low alpha as preview
-    tctx.save(); tctx.globalAlpha = 0.12; tctx.drawImage(off, 0,0,w,h); tctx.restore();
+downloadPNG.addEventListener('click', ()=>{
+  const link = document.createElement('a');
+  link.href = canvas.toDataURL('image/png');
+  link.download = 'visualizer_snapshot.png';
+  link.click();
+});
 
-    // We will replay the current drawn pixels onto the temporary canvas by sampling the main canvas
-    // Simpler approach: draw the main canvas scaled up (preserves appearance)
-    tctx.drawImage(canvas, 0,0, canvas.width, canvas.height, 0,0, w, h);
+// Initialize canvas fullsize
+resizeCanvas();
 
-    // convert to blob and download
-    tmp.toBlob((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `sketch@${scale}x.png`;
-      a.click();
-    }, 'image/png');
-  });
+// small helper to try decoding unknown file with decodeAudioData if direct audio element fails (not used by default)
+async function tryDecodeArrayBuffer(fileOrUrl){
+  // not called automatically to avoid CORS complexity; kept for future expansion
+}
 
-  // Export SVG: produce a path per stroke group
-  exportSVGbtn.addEventListener('click', () => {
-    if (!paths.length) return alert('No drawing paths to export. Compute points & draw first.');
-    // build svg content
-    const w = off.width, h = off.height;
-    const strokeColor = invert.checked ? '#ffffff' : '#111111';
-    const svgParts = [];
-    svgParts.push(`<?xml version="1.0" encoding="UTF-8"?>`);
-    svgParts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`);
-    svgParts.push(`<rect width="100%" height="100%" fill="white"/>`);
-    // for each path, make a polyline or path with stroke width scaled
-    const baseStroke = parseFloat(stroke.value);
-    const audioFactor = getAudioFactor();
-    const strokeW = baseStroke * (1 + (audioDriveChk.checked ? audioFactor*3 : 0));
-    for (let i=0;i<paths.length;i++){
-      const path = paths[i];
-      if (!path.length) continue;
-      // create d attribute
-      const d = path.map((p,idx) => `${idx===0 ? 'M' : 'L'} ${Math.round(p.x)} ${Math.round(p.y)}`).join(' ');
-      svgParts.push(`<path d="${d}" fill="none" stroke="${strokeColor}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${(strokeW).toFixed(2)}" />`);
-    }
-    svgParts.push(`</svg>`);
-    const svg = svgParts.join('\n');
-    // provide download link
-    const blob = new Blob([svg], {type:'image/svg+xml'});
-    const url = URL.createObjectURL(blob);
-    downloadSVGbtn.disabled = false;
-    downloadSVGbtn.onclick = () => {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'sketch.svg';
-      a.click();
-    };
-    // Also open in new tab for preview
-    const wref = window.open();
-    wref.document.write(`<pre style="white-space:pre-wrap;">${escapeHtml(svg)}</pre>`);
-    wref.document.close();
-    status('SVG ready — click Download SVG to save.');
-  });
+// Auto-resize on load
+window.addEventListener('load', ()=>resizeCanvas());
 
-  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+// Prevent accidental navigation on dragdrop
+window.addEventListener("dragover", function(e){ e.preventDefault(); }, false);
+window.addEventListener("drop", function(e){ /* allow handling in drop area only */ }, false);
 
-  // utility: generate an SVG from canvas (if user prefers)
-  downloadSVGbtn.addEventListener('click', () => { /* handled when set */ });
-
-  // Helpers: stop audio on unload
-  window.addEventListener('beforeunload', () => {
-    if (audioElement) try { audioElement.pause(); } catch(e){}
-    if (audioCtx) try { audioCtx.close(); } catch(e){}
-  });
-
-  // small helper to re-render preview initially
-  function renderInitial(){
-    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.save(); ctx.globalAlpha = 0.12; ctx.drawImage(off,0,0); ctx.restore();
-  }
-
-  // simple shuffle
-  function shuffle(a){ for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
-
-  // set initial preset
-  applyPreset('pencil');
-
-  // status initial
-  status('idle');
-
-})();
 </script>
 </body>
 </html>
